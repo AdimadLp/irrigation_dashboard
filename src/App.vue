@@ -41,6 +41,7 @@ defineExpose({ fetchedData, error })
   </div>
   <div v-else-if="fetchedData && fetchedData.length">
     <div>
+      <p>Time: {{ fetchedData[fetchedData.length - 1].timestamp }}</p>
       <p>Temperature: {{ fetchedData[fetchedData.length - 1].temperature }}</p>
       <p>Humidity: {{ fetchedData[fetchedData.length - 1].humidity }}</p>
       <p>IP Address: {{ fetchedData[fetchedData.length - 1].ip_address }}</p>
