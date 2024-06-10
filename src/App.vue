@@ -43,6 +43,7 @@ defineExpose({ fetchedData, error })
     <div>
       <p>Temperature: {{ fetchedData[fetchedData.length - 1].temperature }}</p>
       <p>Humidity: {{ fetchedData[fetchedData.length - 1].humidity }}</p>
+      <p>IP Address: {{ fetchedData[fetchedData.length - 1].ip_address }}</p>
     </div>
   </div>
   <div v-else>
