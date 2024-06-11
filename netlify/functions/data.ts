@@ -1,14 +1,14 @@
-import { MongoClient, ServerApiVersion } from 'mongodb';
-import type { Handler } from '@netlify/functions';
+import { MongoClient, ServerApiVersion } from 'mongodb'
+import type { Handler } from '@netlify/functions'
 
 export const handler: Handler = async (event, context) => {
-  const uri = process.env.VITE_MONGODB_ATLAS_CONNECTION_STRING;
+  const uri = process.env.VITE_MONGODB_ATLAS_CONNECTION_STRING
 
   if (!uri) {
     return {
       statusCode: 500,
-      body: 'MONGODB_ATLAS_CONNECTION_STRING environment variable not set',
-    };
+      body: 'MONGODB_ATLAS_CONNECTION_STRING environment variable not set'
+    }
   }
 
   try {
@@ -16,28 +16,28 @@ export const handler: Handler = async (event, context) => {
       serverApi: {
         version: ServerApiVersion.v1,
         strict: true,
-        deprecationErrors: true,
-      },
-    });
+        deprecationErrors: true
+      }
+    })
 
-    await client.connect();
+    await client.connect()
 
-    const database = client.db('SensorData');
-    const collection = database.collection('TemperatureHumiditySensor');
+    const database = client.db('SensorData')
+    const collection = database.collection('TemperatureHumiditySensor')
 
-    const items = await collection.find().toArray();
+    const items = await collection.find().toArray()
 
-    await client.close();
+    await client.close()
 
     return {
       statusCode: 200,
-      body: JSON.stringify(items),
-    };
+      body: JSON.stringify(items)
+    }
   } catch (error) {
-    console.error(error);
+    console.error(error)
     return {
       statusCode: 500,
-      body: 'Error connecting to MongoDB',
-    };
+      body: 'Error connecting to MongoDB'
+    }
   }
-};
+}
