@@ -1,7 +1,7 @@
-import { readData } from './cosmosService'
+import { read_last_sensor_data } from './cosmosService'
 
 export async function fetchData() {
-  const data = await readData()
-  console.log(data)
-  return data
+  const last_sensor_data = await read_last_sensor_data()
+  console.log(last_sensor_data)
+  return last_sensor_data
 }
