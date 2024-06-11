@@ -2,9 +2,16 @@
 import { ref, onMounted, onUnmounted, defineExpose } from 'vue'
 import { fetchData } from './app'
 
-const fetchedData = ref([])
-const error = ref(null)
-let intervalId = null
+type DataItem = {
+  timestamp: string
+  temperature: number
+  humidity: number
+  ip_address: string
+}
+
+const fetchedData = ref<DataItem[]>([])
+const error = ref<string | null>(null)
+let intervalId: NodeJS.Timeout | null = null
 
 onMounted(async () => {
   try {
@@ -13,7 +20,7 @@ onMounted(async () => {
       fetchedData.value = data
     }
   } catch (err) {
-    error.value = err.message
+    error.value = (err as Error).message
   }
 
   intervalId = setInterval(async () => {
@@ -23,13 +30,15 @@ onMounted(async () => {
         fetchedData.value = data
       }
     } catch (err) {
-      error.value = err.message
+      error.value = (err as Error).message
     }
   }, 5000)
 })
 
 onUnmounted(() => {
-  clearInterval(intervalId)
+  if (intervalId !== null) {
+    clearInterval(intervalId)
+  }
 })
 
 defineExpose({ fetchedData, error })
