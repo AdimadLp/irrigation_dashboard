@@ -2,6 +2,3 @@
   publish = "dist"
   command = "npm run build"
   functions = "netlify/functions"
-
-[context.production.environment]
-  MONGODB_ATLAS_CONNECTION_STRING = "your-connection-string"
