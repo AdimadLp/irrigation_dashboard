@@ -22,25 +22,16 @@ export const handler: Handler = async (event, context) => {
 
     await client.connect()
 
-    const sensorDataDatabase = client.db('SensorData')
-    const temperatureHumiditySensorCollection = sensorDataDatabase.collection(
-      'TemperatureHumiditySensor'
-    )
+    const database = client.db('SensorData')
+    const collection = database.collection('TemperatureHumiditySensor')
 
-    //const deviceListDatabase = client.db('DeviceList')
-    //const deviceListCollection = deviceListDatabase.collection('DeviceIPAddresses')
-
-    const sensorItems = await temperatureHumiditySensorCollection.find().toArray()
-    //const deviceListItems = await deviceListCollection.find().toArray()
+    const items = await collection.find().toArray()
 
     await client.close()
 
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        sensorItems,
-        //deviceListItems
-      })
+      body: JSON.stringify(items)
     }
   } catch (error) {
     console.error(error)
