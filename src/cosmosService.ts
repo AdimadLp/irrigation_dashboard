@@ -1,23 +1,32 @@
-import { CosmosClient } from '@azure/cosmos'
+import { MongoClient, ServerApiVersion } from 'mongodb'
 
-const databaseId = 'PublicMonitorData'
-const containerId = 'PublicMonitorDataContainer'
+const uri = import.meta.env.VITE_MONGODB_ATLAS_CONNECTION_STRING
 
-// Get the connection string from environment variables
-const connectionString = import.meta.env.VITE_COSMOS_DB_CONNECTION_STRING
-
-if (!connectionString) {
-  throw new Error('COSMOS_DB_CONNECTION_STRING environment variable not set')
+if (!uri) {
+  throw new Error('MONGODB_ATLAS_CONNECTION_STRING environment variable not set')
 }
 
-export async function read_last_sensor_data() {
-  const client = new CosmosClient(connectionString as string)
+export async function readData() {
+  try {
+    const client = new MongoClient(uri, {
+      serverApi: {
+        version: ServerApiVersion.v1,
+        strict: true,
+        deprecationErrors: true
+      }
+    })
 
-  const database = client.database(databaseId)
-  const container = database.container(containerId)
-  const { resources: items } = await container.items
-    .query('SELECT * FROM c ORDER BY c.timestamp DESC')
-    .fetchAll()
+    await client.connect()
 
-  return items
+    const database = client.db('SensorData')
+    const collection = database.collection('TemperatureHumiditySensor')
+
+    const items = await collection.find().toArray()
+
+    await client.close()
+
+    return items
+  } catch (error) {
+    console.error(error)
+  }
 }
