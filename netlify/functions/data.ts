@@ -1,7 +1,7 @@
 import { MongoClient, ServerApiVersion } from 'mongodb'
 import type { Handler } from '@netlify/functions'
 
-export const handler: Handler = async (event, context) => {
+export const handler: Handler = async (_, _1) => {
   const uri = process.env.VITE_MONGODB_ATLAS_CONNECTION_STRING
 
   if (!uri) {
@@ -22,16 +22,23 @@ export const handler: Handler = async (event, context) => {
 
     await client.connect()
 
-    const database = client.db('SensorData')
-    const collection = database.collection('TemperatureHumiditySensor')
+    const sensorDataDatabase = client.db('SensorData')
+    const temperatureHumiditySensorCollection = sensorDataDatabase.collection(
+      'TemperatureHumiditySensor'
+    )
 
-    const items = await collection.find().toArray()
+    const items = await temperatureHumiditySensorCollection.find().toArray()
+
+    const deviceListDatabase = client.db('DeviceList')
+    const deviceCollection = deviceListDatabase.collection('Devices')
+
+    const devices = await deviceCollection.find().toArray()
 
     await client.close()
 
     return {
       statusCode: 200,
-      body: JSON.stringify(items)
+      body: JSON.stringify({ items, devices })
     }
   } catch (error) {
     console.error(error)

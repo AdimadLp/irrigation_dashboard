@@ -11,7 +11,7 @@ type DataItem = {
 
 const fetchedData = ref<DataItem[]>([])
 const error = ref<string | null>(null)
-let intervalId: NodeJS.Timeout | null = null
+let intervalId: number | null = null
 
 onMounted(async () => {
   try {
