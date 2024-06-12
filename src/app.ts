@@ -1,7 +1,13 @@
 export async function fetchData() {
-  const response = await fetch('/.netlify/functions/data')
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`)
+  try {
+    const response = await fetch('/.netlify/functions/fetchDataHandler')
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    const data = await response.json()
+    return data
+  } catch (error) {
+    console.error('Fetch error:', error)
+    throw error
   }
-  return await response.json()
 }
