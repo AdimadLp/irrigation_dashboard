@@ -16,40 +16,64 @@ type DataItem = {
     timestamp: string
   }>
 }
-
+let pendingPromises = ref<Promise<any>[]>([])
 const fetchedData = ref<DataItem[]>([])
 const error = ref<string | null>(null)
 let intervalId: number | null = null
+let isUnmounted = ref<boolean>(false)
+let previousTimestamp = ref<string | null>(null)
+let color = ref<string>('green')
+let unchangedDataCount = ref<number>(0)
 
 onMounted(async () => {
   try {
     const data = await fetchData()
-    if (JSON.stringify(data) !== JSON.stringify(fetchedData.value)) {
-      fetchedData.value = [data] // Da die Daten jetzt ein einzelnes Objekt sind, wickeln wir sie in ein Array ein
+    if (!isUnmounted.value && JSON.stringify(data) !== JSON.stringify(fetchedData.value)) {
+      fetchedData.value = [data]
+      previousTimestamp.value = data.db1.timestamp
     }
   } catch (err) {
     error.value = (err as Error).message
   }
 
-  intervalId = setInterval(async () => {
-    try {
-      const newData = await fetchData()
-      if (JSON.stringify(fetchedData.value[0]) !== JSON.stringify(newData)) {
-        fetchedData.value = [newData]
-      }
-    } catch (err) {
-      error.value = (err as Error).message
-    }
+  intervalId = setInterval(() => {
+    const promise = fetchData()
+      .then((newData) => {
+        if (
+          !isUnmounted.value &&
+          JSON.stringify(fetchedData.value[0].db1) !== JSON.stringify(newData.db1)
+        ) {
+          fetchedData.value = [newData]
+          color.value = 'green'
+          previousTimestamp.value = newData.db1.timestamp
+          unchangedDataCount.value = 0
+        } else {
+          unchangedDataCount.value++
+          if (unchangedDataCount.value >= 3) {
+            color.value = 'red'
+          }
+        }
+      })
+      .catch((err) => {
+        error.value = (err as Error).message
+      })
+      .finally(() => {
+        pendingPromises.value = pendingPromises.value.filter((p) => p !== promise)
+      })
+
+    pendingPromises.value.push(promise)
   }, 5000)
 })
 
-onUnmounted(() => {
+onUnmounted(async () => {
+  isUnmounted.value = true
   if (intervalId !== null) {
     clearInterval(intervalId)
   }
+  await Promise.all(pendingPromises.value)
 })
 
-defineExpose({ fetchedData, error })
+defineExpose({ fetchedData, error, color })
 </script>
 
 <template>
@@ -62,7 +86,9 @@ defineExpose({ fetchedData, error })
       <p>Humidity: {{ fetchedData[0].db1.humidity }}</p>
       <p>Timestamp: {{ fetchedData[0].db1.timestamp }}</p>
       <div v-for="(item, index) in fetchedData[0].db2" :key="index">
-        <p>Device ID: {{ item.deviceid }}</p>
+        <p :class="{ working: color === 'green', 'not-working': color === 'red' }">
+          Device ID: {{ item.deviceid }}
+        </p>
         <p>IP Address: {{ item.ip_address }}</p>
       </div>
     </div>
@@ -73,5 +99,13 @@ defineExpose({ fetchedData, error })
 </template>
 
 <style scoped>
-/* Your styles here */
+.working::before {
+  content: '✔ ';
+  color: green;
+}
+
+.not-working::before {
+  content: '✖ ';
+  color: red;
+}
 </style>
