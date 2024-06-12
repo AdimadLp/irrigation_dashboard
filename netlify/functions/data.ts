@@ -1,37 +1,19 @@
-import { MongoClient, ServerApiVersion } from 'mongodb'
 import type { Handler } from '@netlify/functions'
+import { fetchData } from './fetchData'
 
 export const handler: Handler = async (event, context) => {
-  const uri = process.env.VITE_MONGODB_ATLAS_CONNECTION_STRING
-
-  if (!uri) {
-    return {
-      statusCode: 500,
-      body: 'MONGODB_ATLAS_CONNECTION_STRING environment variable not set'
-    }
-  }
-
   try {
-    const client = new MongoClient(uri, {
-      serverApi: {
-        version: ServerApiVersion.v1,
-        strict: true,
-        deprecationErrors: true
-      }
-    })
-
-    await client.connect()
-
-    const database = client.db('SensorData')
-    const collection = database.collection('TemperatureHumiditySensor')
-
-    const items = await collection.find().toArray()
-
-    await client.close()
+    const itemsFromDb1 = await fetchData('SensorData', 'TemperatureHumiditySensor')
+    const itemsFromDb2 = await fetchData('DeviceList', 'DeviceIPAddresses')
+    // Fetch from more databases and collections as needed...
 
     return {
       statusCode: 200,
-      body: JSON.stringify(items)
+      body: JSON.stringify({
+        db1: itemsFromDb1,
+        db2: itemsFromDb2
+        // Include more data as needed...
+      })
     }
   } catch (error) {
     console.error(error)
