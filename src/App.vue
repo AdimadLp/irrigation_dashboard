@@ -16,7 +16,7 @@ type DataItem = {
     timestamp: string
   }>
 }
-let pendingPromises = ref<Promise<any>[]>([])
+
 const fetchedData = ref<DataItem[]>([])
 const error = ref<string | null>(null)
 let intervalId: number | null = null
@@ -36,41 +36,34 @@ onMounted(async () => {
     error.value = (err as Error).message
   }
 
-  intervalId = setInterval(() => {
-    const promise = fetchData()
-      .then((newData) => {
-        if (
-          !isUnmounted.value &&
-          JSON.stringify(fetchedData.value[0].db1) !== JSON.stringify(newData.db1)
-        ) {
-          fetchedData.value = [newData]
-          color.value = 'green'
-          previousTimestamp.value = newData.db1.timestamp
-          unchangedDataCount.value = 0
-        } else {
-          unchangedDataCount.value++
-          if (unchangedDataCount.value >= 3) {
-            color.value = 'red'
-          }
+  intervalId = setInterval(async () => {
+    try {
+      const newData = await fetchData()
+      if (
+        !isUnmounted.value &&
+        JSON.stringify(fetchedData.value[0].db1) !== JSON.stringify(newData.db1)
+      ) {
+        fetchedData.value = [newData]
+        color.value = 'green'
+        previousTimestamp.value = newData.db1.timestamp
+        unchangedDataCount.value = 0
+      } else {
+        unchangedDataCount.value++
+        if (unchangedDataCount.value >= 3) {
+          color.value = 'red'
         }
-      })
-      .catch((err) => {
-        error.value = (err as Error).message
-      })
-      .finally(() => {
-        pendingPromises.value = pendingPromises.value.filter((p) => p !== promise)
-      })
-
-    pendingPromises.value.push(promise)
+      }
+    } catch (err) {
+      error.value = (err as Error).message
+    }
   }, 5000)
 })
 
-onUnmounted(async () => {
+onUnmounted(() => {
   isUnmounted.value = true
   if (intervalId !== null) {
     clearInterval(intervalId)
   }
-  await Promise.all(pendingPromises.value)
 })
 
 defineExpose({ fetchedData, error, color })
