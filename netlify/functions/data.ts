@@ -1,18 +1,16 @@
 import type { Handler } from '@netlify/functions'
-import { fetchData } from './fetchData'
+import { fetchData, fetchMostRecentItem } from './fetchData'
 
 export const handler: Handler = async (event, context) => {
   try {
-    const itemsFromDb1 = await fetchData('SensorData', 'TemperatureHumiditySensor')
-    const itemsFromDb2 = await fetchData('DeviceList', 'DeviceIPAddresses')
-    // Fetch from more databases and collections as needed...
+    const THSensorData = await fetchMostRecentItem('SensorData', 'TemperatureHumiditySensor')
+    const DeviceIPAddresses = await fetchData('DeviceList', 'DeviceIPAddresses')
 
     return {
       statusCode: 200,
       body: JSON.stringify({
-        db1: itemsFromDb1,
-        db2: itemsFromDb2
-        // Include more data as needed...
+        db1: THSensorData,
+        db2: DeviceIPAddresses
       })
     }
   } catch (error) {

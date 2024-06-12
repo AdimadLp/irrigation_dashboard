@@ -1,0 +1,42 @@
+{
+  "version": "3",
+  "remote": {
+    "https://edge.netlify.com/": "ff84a16f192fdb43db8b9dff869889f555c05857d075044d2a7cfa54c283a0a0",
+    "https://edge.netlify.com/bootstrap/config.ts": "0aa0a225d978b89e0e62cbd853701605199e7a84095e55eeb70147faf1a24803",
+    "https://edge.netlify.com/bootstrap/context.ts": "8f99269eeeeccf9b852e6089cc648c962a0ea20b2198b8b38b38e3b2ce2b9143",
+    "https://edge.netlify.com/bootstrap/cookie.ts": "8b0baae708989ca183c6f3b4ab3d029e6abcbc2e43f93edeb0ff447b3bbc3a05",
+    "https://edge.netlify.com/bootstrap/edge_function.ts": "b8253e86aa83c67341f5cfedeba5049d77fbf84dcab7eceff7566b7728ae9b39",
+    "https://edge.netlify.com/bootstrap/globals.ts": "38f9e0be6c2c78206bf14d2387d41964d38bbe81644b3668e203c6f6473408a7"
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@azure/cosmos@^4.0.0",
+        "npm:@azure/identity@^4.2.0",
+        "npm:@azure/keyvault-secrets@^4.8.0",
+        "npm:@netlify/functions@^2.7.0",
+        "npm:@rushstack/eslint-patch@^1.8.0",
+        "npm:@tsconfig/node20@^20.1.4",
+        "npm:@types/node@^20.12.5",
+        "npm:@vitejs/plugin-vue@^5.0.4",
+        "npm:@vue/eslint-config-prettier@^9.0.0",
+        "npm:@vue/eslint-config-typescript@^13.0.0",
+        "npm:@vue/tsconfig@^0.5.1",
+        "npm:dotenv-webpack@^8.1.0",
+        "npm:dotenv@^16.4.5",
+        "npm:eslint-plugin-vue@^9.23.0",
+        "npm:eslint@^8.57.0",
+        "npm:express@^4.19.2",
+        "npm:mongodb@^6.7.0",
+        "npm:npm-run-all2@^6.1.2",
+        "npm:prettier@^3.2.5",
+        "npm:typescript@~5.4.0",
+        "npm:vite-plugin-vue-devtools@^7.0.25",
+        "npm:vite@^5.2.8",
+        "npm:vue-router@^4.3.0",
+        "npm:vue-tsc@^2.0.11",
+        "npm:vue@^3.4.21"
+      ]
+    }
+  }
+}

@@ -11,3 +11,15 @@ export async function fetchData(databaseName: string, collectionName: string) {
 
   return items
 }
+
+export async function fetchMostRecentItem(databaseName: string, collectionName: string) {
+  const client = await connectToDb()
+  const database = client.db(databaseName)
+  const collection = database.collection(collectionName)
+
+  const item = await collection.find().sort({ timestamp: -1 }).limit(1).toArray()
+
+  await client.close()
+
+  return item[0]
+}

@@ -3,10 +3,18 @@ import { ref, onMounted, onUnmounted, defineExpose } from 'vue'
 import { fetchData } from './app'
 
 type DataItem = {
-  timestamp: string
-  temperature: number
-  humidity: number
-  ip_address: string
+  db1: {
+    _id: string
+    temperature: number
+    humidity: number
+    timestamp: string
+  }
+  db2: Array<{
+    _id: string
+    deviceid: string
+    ip_address: string
+    timestamp: string
+  }>
 }
 
 const fetchedData = ref<DataItem[]>([])
@@ -17,7 +25,7 @@ onMounted(async () => {
   try {
     const data = await fetchData()
     if (JSON.stringify(data) !== JSON.stringify(fetchedData.value)) {
-      fetchedData.value = data
+      fetchedData.value = [data] // Da die Daten jetzt ein einzelnes Objekt sind, wickeln wir sie in ein Array ein
     }
   } catch (err) {
     error.value = (err as Error).message
@@ -25,9 +33,9 @@ onMounted(async () => {
 
   intervalId = setInterval(async () => {
     try {
-      const data = await fetchData()
-      if (JSON.stringify(data) !== JSON.stringify(fetchedData.value)) {
-        fetchedData.value = data
+      const newData = await fetchData()
+      if (JSON.stringify(fetchedData.value[0]) !== JSON.stringify(newData)) {
+        fetchedData.value = [newData]
       }
     } catch (err) {
       error.value = (err as Error).message
@@ -50,10 +58,13 @@ defineExpose({ fetchedData, error })
   </div>
   <div v-else-if="fetchedData && fetchedData.length">
     <div>
-      <p>Time: {{ fetchedData[fetchedData.length - 1].timestamp }}</p>
-      <p>Temperature: {{ fetchedData[fetchedData.length - 1].temperature }}</p>
-      <p>Humidity: {{ fetchedData[fetchedData.length - 1].humidity }}</p>
-      <p>IP Address: {{ fetchedData[fetchedData.length - 1].ip_address }}</p>
+      <p>Temperature: {{ fetchedData[0].db1.temperature }}</p>
+      <p>Humidity: {{ fetchedData[0].db1.humidity }}</p>
+      <p>Timestamp: {{ fetchedData[0].db1.timestamp }}</p>
+      <div v-for="(item, index) in fetchedData[0].db2" :key="index">
+        <p>Device ID: {{ item.deviceid }}</p>
+        <p>IP Address: {{ item.ip_address }}</p>
+      </div>
     </div>
   </div>
   <div v-else>
