@@ -101,10 +101,10 @@ onMounted(() => {
 watch(
   () => [...props.pastData],
   (newData: DataPoint[]) => {
-    if (newData && chart.value && chart.value.data.labels) {
+    if (newData && chart.value && chart.value.data && chart.value.data.labels) {
       let isDataChanged = false
       newData.forEach((data, index) => {
-        if (chart.value) {
+        if (chart.value && chart.value.data && chart.value.data.labels) {
           if (
             chart.value.data.labels[index] !== data.timestamp ||
             chart.value.data.datasets[0].data[index] !== data.temperature ||
