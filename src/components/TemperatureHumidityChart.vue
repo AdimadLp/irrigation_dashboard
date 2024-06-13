@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div v-if="pastData.length">
     <canvas id="temperatureHumidityChart"></canvas>
   </div>
 </template>
@@ -31,6 +31,7 @@ Chart.register(
 )
 
 let chart = ref<Chart<'line', any, unknown> | undefined>(undefined)
+let lastChangeTimestamp = ref<Date | null>(null)
 
 interface DataPoint {
   timestamp: string
@@ -99,23 +100,40 @@ onMounted(() => {
 })
 
 watch(
-  () => [...props.pastData],
+  () => props.pastData,
   (newData: DataPoint[]) => {
     if (newData && chart.value && chart.value.data && chart.value.data.labels) {
       let isDataChanged = false
       newData.forEach((data, index) => {
-        if (chart.value && chart.value.data && chart.value.data.labels) {
+        const dataTimestamp = new Date(data.timestamp)
+        if (
+          !lastChangeTimestamp.value || // Add null check here
+          (lastChangeTimestamp.value && dataTimestamp > lastChangeTimestamp.value)
+        ) {
           if (
-            chart.value.data.labels[index] !== data.timestamp ||
-            chart.value.data.datasets[0].data[index] !== data.temperature ||
-            chart.value.data.datasets[1].data[index] !== data.humidity
+            chart.value &&
+            chart.value.data &&
+            chart.value.data.labels &&
+            index < chart.value.data.labels.length &&
+            index < chart.value.data.datasets[0].data.length &&
+            index < chart.value.data.datasets[1].data.length
           ) {
-            isDataChanged = true
-            chart.value.data.labels[index] = data.timestamp
-            chart.value.data.datasets[0].data[index] = data.temperature
-            chart.value.data.datasets[1].data[index] = data.humidity
+            if (
+              chart.value.data.labels[index] !== data.timestamp ||
+              chart.value.data.datasets[0].data[index] !== data.temperature ||
+              chart.value.data.datasets[1].data[index] !== data.humidity
+            ) {
+              isDataChanged = true
+              chart.value.data.labels[index] = data.timestamp
+              chart.value.data.datasets[0].data[index] = data.temperature
+              chart.value.data.datasets[1].data[index] = data.humidity
+              if (lastChangeTimestamp.value && dataTimestamp > lastChangeTimestamp.value) {
+                // Add null check here
+                lastChangeTimestamp.value = dataTimestamp
+              }
+            }
           }
-        }
+        } //
       })
       if (chart.value && isDataChanged) {
         chart.value.update()

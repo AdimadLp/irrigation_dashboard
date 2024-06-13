@@ -33,17 +33,16 @@ const loading = ref<boolean>(true)
 
 onMounted(async () => {
   try {
-    const fetchedData = await fetchData('new')
-    newData.value = fetchedData
-    if (fetchedData.db1) {
-      pastData.value.push(fetchedData.db1)
-    }
-
     const fetchedPastData = await fetchData('past')
     if (Array.isArray(fetchedPastData.db3)) {
       pastData.value = fetchedPastData.db3
     }
     loading.value = false
+    const fetchedData = await fetchData('new')
+    newData.value = fetchedData
+    if (fetchedData.db1) {
+      pastData.value.push(fetchedData.db1)
+    }
   } catch (err) {
     error.value = (err as Error).message
     loading.value = false

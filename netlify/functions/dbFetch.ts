@@ -29,10 +29,12 @@ export async function fetchSensorDataForPastWeek(databaseName: string, collectio
   const collection = database.collection(collectionName)
 
   const oneWeekAgo = new Date()
-  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 1)
 
   const items = await collection
     .find({ timestamp: { $gte: new Date(oneWeekAgo).toISOString() } })
+    .sort({ timestamp: -1 }) // sort in descending order
+    .limit(100000) // limit to 10 entries
     .toArray()
 
   await client.close()
