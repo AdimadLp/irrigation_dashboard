@@ -13,9 +13,6 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
-    "@azure/cosmos": "^4.0.0",
-    "@azure/identity": "^4.2.0",
-    "@azure/keyvault-secrets": "^4.8.0",
     "@netlify/functions": "^2.7.0",
     "chart.js": "^4.4.3",
     "chartjs-adapter-date-fns": "^3.0.0",
