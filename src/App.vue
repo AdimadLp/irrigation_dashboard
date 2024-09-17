@@ -12,4 +12,13 @@ export default defineComponent({
 })
 </script>
 
-<style></style>
+<style>
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0%;
+  font-family: 'Avenir', Helvetica, Arial, sans-serif;
+}
+</style>
