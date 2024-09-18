@@ -220,7 +220,7 @@ const createChartConfig = (averagedData: SensorDataPoint[]) => {
             },
             ticks: {
               color: sensor.color,
-              callback: function (value) {
+              callback: function (value: number) {
                 return value.toFixed(1) // Display only one decimal digit
               }
             },
