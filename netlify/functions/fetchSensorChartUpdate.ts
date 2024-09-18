@@ -6,123 +6,145 @@ const COLLECTION_NAME = 'sensors'
 
 export async function getReadingsAfterTimestamp(sensorId: string, lastTimestamp: number) {
   const client = await connectToDb()
+  try {
+    const database = client.db(DATABASE_NAME)
+    const collection = database.collection(COLLECTION_NAME)
 
-  const database = client.db(DATABASE_NAME)
-  const collection = database.collection(COLLECTION_NAME)
-
-  const sensor = await collection
-    .aggregate([
-      { $match: { sensorID: parseInt(sensorId) } },
-      {
-        $project: {
-          readings: {
-            $filter: {
-              input: '$readings',
-              as: 'reading',
-              cond: { $gt: ['$$reading.timestamp', lastTimestamp] }
+    const sensor = await collection
+      .aggregate([
+        { $match: { sensorID: parseInt(sensorId) } },
+        {
+          $project: {
+            readings: {
+              $filter: {
+                input: '$readings',
+                as: 'reading',
+                cond: { $gt: ['$$reading.timestamp', lastTimestamp] }
+              }
             }
           }
         }
-      }
-    ])
-    .toArray()
+      ])
+      .toArray()
 
-  if (sensor.length > 0 && sensor[0].readings) {
-    return sensor[0].readings
-  } else {
-    return []
+    if (sensor.length > 0 && sensor[0].readings) {
+      return sensor[0].readings
+    } else {
+      return []
+    }
+  } finally {
+    await client.close()
   }
 }
+
 async function fetchMostRecentItem(sensorId: string) {
   const client = await connectToDb()
-  const database = client.db(DATABASE_NAME)
-  const collection = database.collection(COLLECTION_NAME)
+  try {
+    const database = client.db(DATABASE_NAME)
+    const collection = database.collection(COLLECTION_NAME)
 
-  const sensor = await collection.findOne(
-    { sensorID: parseInt(sensorId) },
-    { projection: { readings: { $slice: -1 } } }
-  )
+    const sensor = await collection.findOne(
+      { sensorID: parseInt(sensorId) },
+      { projection: { readings: { $slice: -1 } } }
+    )
 
-  await client.close()
-
-  return sensor?.readings[0] || null
+    return sensor?.readings[0] || null
+  } finally {
+    await client.close()
+  }
 }
 
 async function fetchSensorDataForPastDay(sensorId: string) {
   const client = await connectToDb()
-  const database = client.db(DATABASE_NAME)
-  const collection = database.collection(COLLECTION_NAME)
+  try {
+    const database = client.db(DATABASE_NAME)
+    const collection = database.collection(COLLECTION_NAME)
 
-  const oneDayAgo = Math.floor(Date.now() / 1000) - 86400 // Unix timestamp for 24 hours ago
+    const oneDayAgo = Math.floor(Date.now() / 1000) - 86400 // Unix timestamp for 24 hours ago
 
-  const sensor = await collection.findOne(
-    { sensorID: parseInt(sensorId), 'readings.timestamp': { $gte: oneDayAgo } },
-    { projection: { _id: 0 } }
-  )
+    const sensor = await collection.findOne(
+      { sensorID: parseInt(sensorId), 'readings.timestamp': { $gte: oneDayAgo } },
+      { projection: { _id: 0 } }
+    )
 
-  return sensor
+    return sensor
+  } finally {
+    await client.close()
+  }
 }
 
 async function fetchSensorDataForPastWeek(sensorId: string) {
   const client = await connectToDb()
-  const database = client.db(DATABASE_NAME)
-  const collection = database.collection(COLLECTION_NAME)
+  try {
+    const database = client.db(DATABASE_NAME)
+    const collection = database.collection(COLLECTION_NAME)
 
-  const oneWeekAgo = Math.floor(Date.now() / 1000) - 604800 // Unix timestamp for 7 days ago
+    const oneWeekAgo = Math.floor(Date.now() / 1000) - 604800 // Unix timestamp for 7 days ago
 
-  const sensor = await collection.findOne(
-    { sensorID: parseInt(sensorId), 'readings.timestamp': { $gte: oneWeekAgo } },
-    { sort: { 'readings.timestamp': -1 } }
-  )
+    const sensor = await collection.findOne(
+      { sensorID: parseInt(sensorId), 'readings.timestamp': { $gte: oneWeekAgo } },
+      { sort: { 'readings.timestamp': -1 } }
+    )
 
-  await client.close()
-  return sensor?.readings || []
+    return sensor?.readings || []
+  } finally {
+    await client.close()
+  }
 }
 
 async function fetchSensorDataForPastMonth(sensorId: string) {
   const client = await connectToDb()
-  const database = client.db(DATABASE_NAME)
-  const collection = database.collection(COLLECTION_NAME)
+  try {
+    const database = client.db(DATABASE_NAME)
+    const collection = database.collection(COLLECTION_NAME)
 
-  const oneMonthAgo = Math.floor(Date.now() / 1000) - 2592000 // Unix timestamp for 30 days ago
+    const oneMonthAgo = Math.floor(Date.now() / 1000) - 2592000 // Unix timestamp for 30 days ago
 
-  const sensor = await collection.findOne(
-    { sensorID: parseInt(sensorId), 'readings.timestamp': { $gte: oneMonthAgo } },
-    { sort: { 'readings.timestamp': -1 } }
-  )
+    const sensor = await collection.findOne(
+      { sensorID: parseInt(sensorId), 'readings.timestamp': { $gte: oneMonthAgo } },
+      { sort: { 'readings.timestamp': -1 } }
+    )
 
-  await client.close()
-  return sensor?.readings || []
+    return sensor?.readings || []
+  } finally {
+    await client.close()
+  }
 }
 
 async function fetchSensorDataForPastYear(sensorId: string) {
   const client = await connectToDb()
-  const database = client.db(DATABASE_NAME)
-  const collection = database.collection(COLLECTION_NAME)
+  try {
+    const database = client.db(DATABASE_NAME)
+    const collection = database.collection(COLLECTION_NAME)
 
-  const oneYearAgo = Math.floor(Date.now() / 1000) - 31536000 // Unix timestamp for 365 days ago
+    const oneYearAgo = Math.floor(Date.now() / 1000) - 31536000 // Unix timestamp for 365 days ago
 
-  const sensor = await collection.findOne(
-    { sensorID: parseInt(sensorId), 'readings.timestamp': { $gte: oneYearAgo } },
-    { sort: { 'readings.timestamp': -1 } }
-  )
+    const sensor = await collection.findOne(
+      { sensorID: parseInt(sensorId), 'readings.timestamp': { $gte: oneYearAgo } },
+      { sort: { 'readings.timestamp': -1 } }
+    )
 
-  await client.close()
-  return sensor?.readings || []
+    return sensor?.readings || []
+  } finally {
+    await client.close()
+  }
 }
 
 async function fetchAllSensorData(sensorId: string) {
   const client = await connectToDb()
-  const database = client.db(DATABASE_NAME)
-  const collection = database.collection(COLLECTION_NAME)
+  try {
+    const database = client.db(DATABASE_NAME)
+    const collection = database.collection(COLLECTION_NAME)
 
-  const sensor = await collection.findOne(
-    { sensorID: parseInt(sensorId) },
-    { sort: { 'readings.timestamp': -1 } }
-  )
+    const sensor = await collection.findOne(
+      { sensorID: parseInt(sensorId) },
+      { sort: { 'readings.timestamp': -1 } }
+    )
 
-  await client.close()
-  return sensor?.readings || []
+    return sensor?.readings || []
+  } finally {
+    await client.close()
+  }
 }
 
 async function fetchSensorData(type: string, sensorId: string, lastTimestamp?: number) {

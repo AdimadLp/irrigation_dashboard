@@ -165,7 +165,14 @@ const createChartConfig = (averagedData: SensorDataPoint[]) => {
       },
       tooltip: {
         mode: 'index' as const,
-        intersect: false
+        intersect: false,
+        callbacks: {
+          label: function (context) {
+            const label = context.dataset.label || ''
+            const value = context.raw
+            return `${label}: ${value}`
+          }
+        }
       },
       legend: {
         labels: {
@@ -185,12 +192,20 @@ const createChartConfig = (averagedData: SensorDataPoint[]) => {
         time: {
           unit: 'minute',
           displayFormats: {
-            minute: 'HH:mm'
-          }
+            minute: 'HH:mm' // Display only the time
+          },
+          tooltipFormat: 'YYYY-MM-DD HH:mm' // Tooltip should display date and time
         },
         title: {
           display: true,
           text: 'Time'
+        },
+        ticks: {
+          display: false, // Remove x-axis labels
+          maxTicksLimit: 3 // Limit the number of ticks displayed
+        },
+        grid: {
+          display: false // Remove grid lines
         }
       },
       ...sensors.value.reduce(
@@ -204,7 +219,10 @@ const createChartConfig = (averagedData: SensorDataPoint[]) => {
               text: sensor.label
             },
             ticks: {
-              color: sensor.color
+              color: sensor.color,
+              callback: function (value) {
+                return value.toFixed(1) // Display only one decimal digit
+              }
             },
             grid: {
               drawOnChartArea: index === 0
@@ -226,6 +244,7 @@ const createChartConfig = (averagedData: SensorDataPoint[]) => {
     options
   }
 }
+
 const createOrUpdateChart = () => {
   const canvas = document.getElementById(props.chartId) as HTMLCanvasElement
   if (!canvas) return
@@ -236,7 +255,7 @@ const createOrUpdateChart = () => {
   if (chart) {
     chart.data = config.data
     chart.options = config.options
-    chart.update()
+    chart.update('none')
   } else {
     chart = new Chart(canvas, config)
   }

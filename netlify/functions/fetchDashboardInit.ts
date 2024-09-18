@@ -7,8 +7,8 @@ async function fetchAllSensorsDataForPastDay(client) {
   const database = client.db(DATABASE_NAME)
   const collection = database.collection('sensors')
 
-  //const oneDayAgo = Math.floor(Date.now() / 1000) - 86400 // Unix timestamp for 24 hours ago
-  const oneMinuteAgo = Math.floor(Date.now() / 1000) - 60 // Unix timestamp for 1 minute ago
+  const oneDayAgo = Math.floor(Date.now() / 1000) - 86400 // Unix timestamp for 24 hours ago
+  //const oneDayAgo = Math.floor(Date.now() / 1000) - 60 // Unix timestamp for 1 minute ago
   const sensors = await collection
     .aggregate([
       {
@@ -23,7 +23,7 @@ async function fetchAllSensorsDataForPastDay(client) {
             $filter: {
               input: '$readings',
               as: 'reading',
-              cond: { $gte: ['$$reading.timestamp', oneMinuteAgo] }
+              cond: { $gte: ['$$reading.timestamp', oneDayAgo] }
             }
           }
         }
