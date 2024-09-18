@@ -6,12 +6,19 @@ export async function fetchDashboardInit() {
   }
   return await response.json()
 }
-export async function fetchSensorChartUpdate(sensorId: string) {
-  const response = await fetch(`/.netlify/functions/fetchSensorChartUpdate?sensorId=${sensorId}`)
+export async function fetchSensorChartUpdate(
+  type: 'pastDay' | 'pastWeek' | 'pastMonth' | 'pastYear' | 'all' | 'watchChanges',
+  sensorIds: number[],
+  lastTimestamps: number[]
+) {
+  const response = await fetch(
+    `/.netlify/functions/fetchSensorChartUpdate?type=${type}&sensorIds=${sensorIds.join(',')}&lastTimestamps=${lastTimestamps.join(',')}`
+  )
 
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`)
   }
+  console.log(response)
   return await response.json()
 }
 export async function fetchIrrigationTimelineUpdate(scheduleID: string) {
@@ -29,7 +36,7 @@ export async function fetchPastSensorData(
   sensorId: string
 ) {
   const response = await fetch(
-    `/.netlify/functions/fetchSensorDataHandler?type=${type}&sensorId=${sensorId}`
+    `/.netlify/functions/fetchSensorChartUpdate?type=${type}&sensorId=${sensorId}`
   )
 
   if (!response.ok) {

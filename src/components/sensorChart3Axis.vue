@@ -6,6 +6,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch, onUnmounted, computed } from 'vue'
+import { fetchSensorChartUpdate } from '@/services/app'
 import 'chartjs-adapter-moment'
 import {
   Chart,
@@ -18,6 +19,7 @@ import {
   TimeScale,
   TimeSeriesScale
 } from 'chart.js'
+import type { ChartOptions, ChartDataset } from 'chart.js'
 
 Chart.register(
   LineController,
@@ -29,6 +31,21 @@ Chart.register(
   TimeScale,
   TimeSeriesScale
 )
+
+interface SensorReading {
+  timestamp: number
+  value: number
+}
+
+interface SensorData {
+  sensorID: number
+  sensorName: string
+  controllerID: string
+  gpioPort: string
+  type: string
+  color: string
+  readings: SensorReading[]
+}
 
 interface SensorDataPoint {
   timestamp: string
@@ -43,12 +60,8 @@ interface SensorConfig {
 }
 
 const props = defineProps({
-  sensorData: {
-    type: Array as () => SensorDataPoint[],
-    required: true
-  },
-  sensors: {
-    type: Array as () => SensorConfig[],
+  sensorArray: {
+    type: Array as () => SensorData[],
     required: true
   },
   title: {
@@ -63,210 +76,233 @@ const props = defineProps({
 
 const defaultColors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40']
 
-const chartCanvas = ref<HTMLCanvasElement | null>(null)
 let chart: Chart | null = null
-let lastChangeTimestamp = ref<Date | null>(null)
+let updateInterval: number | null = null
+
+const sensors = ref<SensorConfig[]>([])
+const allSensorData = ref<SensorDataPoint[]>([])
+const localSensorArray = ref<SensorData[]>([])
+
+const transformSensorData = () => {
+  sensors.value = localSensorArray.value.map((sensor, index) => ({
+    key: sensor.type,
+    label: sensor.sensorName,
+    color: sensor.color || defaultColors[index % defaultColors.length],
+    yAxisID: `y${index}`
+  }))
+
+  const allReadings = new Map<string, SensorDataPoint>()
+
+  localSensorArray.value.forEach((sensor) => {
+    sensor.readings.forEach((reading) => {
+      const timestamp = new Date(reading.timestamp * 1000).toISOString()
+      const existingReading = allReadings.get(timestamp) || { timestamp }
+      existingReading[sensor.type] = reading.value
+      allReadings.set(timestamp, existingReading)
+    })
+  })
+
+  allSensorData.value = Array.from(allReadings.values()).sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  )
+}
 
 const averageDataPoints = (data: SensorDataPoint[], maxPoints: number): SensorDataPoint[] => {
   if (data.length <= maxPoints) return data
 
-  const averagedData: SensorDataPoint[] = []
   const chunkSize = Math.ceil(data.length / maxPoints)
-
-  for (let i = 0; i < data.length; i += chunkSize) {
-    const chunk = data.slice(i, i + chunkSize)
+  return Array.from({ length: maxPoints }, (_, i) => {
+    const chunk = data.slice(i * chunkSize, (i + 1) * chunkSize)
     const avgTimestamp = chunk[Math.floor(chunk.length / 2)].timestamp
     const avgDataPoint: SensorDataPoint = { timestamp: avgTimestamp }
 
-    props.sensors.forEach((sensor) => {
-      const avgValue =
-        chunk.reduce((sum, point) => sum + (point[sensor.key] as number), 0) / chunk.length
-      avgDataPoint[sensor.key] = avgValue
+    sensors.value.forEach((sensor) => {
+      const validValues = chunk
+        .map((point) => point[sensor.key] as number)
+        .filter((value) => !isNaN(value))
+
+      if (validValues.length > 0) {
+        avgDataPoint[sensor.key] =
+          validValues.reduce((sum, value) => sum + value, 0) / validValues.length
+      }
     })
 
-    averagedData.push(avgDataPoint)
-  }
-
-  return averagedData
+    return avgDataPoint
+  })
 }
 
 const getDateRange = computed(() => {
-  if (props.sensorData.length === 0) return ''
-  const startDate = new Date(props.sensorData[0].timestamp)
-  const endDate = new Date(props.sensorData[props.sensorData.length - 1].timestamp)
+  if (allSensorData.value.length === 0) return ''
+  const startDate = new Date(allSensorData.value[0].timestamp)
+  const endDate = new Date(allSensorData.value[allSensorData.value.length - 1].timestamp)
   return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`
 })
 
-const createChart = () => {
+const createChartConfig = (averagedData: SensorDataPoint[]) => {
+  const datasets: ChartDataset<'line', number[]>[] = sensors.value.map((sensor) => ({
+    label: sensor.label,
+    data: averagedData.map((item) => item[sensor.key] as number),
+    borderColor: sensor.color,
+    backgroundColor: sensor.color,
+    borderWidth: 2,
+    pointBackgroundColor: sensor.color,
+    pointBorderColor: sensor.color,
+    pointHoverBackgroundColor: sensor.color,
+    pointHoverBorderColor: sensor.color,
+    fill: false,
+    tension: 0.1,
+    yAxisID: sensor.yAxisID,
+    spanGaps: true // Ensure lines are drawn between points even if there are gaps
+  }))
+
+  const options: ChartOptions<'line'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      title: {
+        display: true,
+        text: [`${props.title}`, `Date Range: ${getDateRange.value}`]
+      },
+      tooltip: {
+        mode: 'index' as const,
+        intersect: false
+      },
+      legend: {
+        labels: {
+          usePointStyle: true,
+          pointStyle: 'circle' as const
+        }
+      }
+    },
+    interaction: {
+      mode: 'nearest' as const,
+      axis: 'x' as const,
+      intersect: false
+    },
+    scales: {
+      x: {
+        type: 'time',
+        time: {
+          unit: 'minute',
+          displayFormats: {
+            minute: 'HH:mm'
+          }
+        },
+        title: {
+          display: true,
+          text: 'Time'
+        }
+      },
+      ...sensors.value.reduce(
+        (acc, sensor, index) => {
+          acc[sensor.yAxisID] = {
+            type: 'linear',
+            display: true,
+            position: index % 2 === 0 ? 'left' : 'right',
+            title: {
+              display: true,
+              text: sensor.label
+            },
+            ticks: {
+              color: sensor.color
+            },
+            grid: {
+              drawOnChartArea: index === 0
+            }
+          }
+          return acc
+        },
+        {} as Record<string, any>
+      )
+    }
+  }
+
+  return {
+    type: 'line' as const,
+    data: {
+      labels: averagedData.map((item) => item.timestamp),
+      datasets
+    },
+    options
+  }
+}
+const createOrUpdateChart = () => {
   const canvas = document.getElementById(props.chartId) as HTMLCanvasElement
   if (!canvas) return
 
+  const averagedData = averageDataPoints(allSensorData.value, 100)
+  const config = createChartConfig(averagedData)
+
   if (chart) {
-    chart.destroy()
-    chart = null
+    chart.data = config.data
+    chart.options = config.options
+    chart.update()
+  } else {
+    chart = new Chart(canvas, config)
   }
+}
 
-  const ctx = canvas.getContext('2d')
-  if (ctx) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-  }
+const updateChartData = async () => {
+  const sensorIds = localSensorArray.value.map((sensor) => sensor.sensorID)
+  const lastTimestamps = localSensorArray.value.map((sensor) => {
+    const readings = sensor.readings
+    return readings.length > 0 ? readings[readings.length - 1].timestamp : 0
+  })
 
-  const averagedData = averageDataPoints(props.sensorData, 100)
+  try {
+    const response = await fetchSensorChartUpdate('watchChanges', sensorIds, lastTimestamps)
 
-  chart = new Chart(canvas, {
-    type: 'line',
-    data: {
-      labels: averagedData.map((item) => item.timestamp),
-      datasets: props.sensors.map((sensor, index) => {
-        const color = sensor.color || defaultColors[index % defaultColors.length]
-        return {
-          label: sensor.label,
-          data: averagedData.map((item) => item[sensor.key] as number),
-          borderColor: color,
-          backgroundColor: color,
-          borderWidth: 2,
-          pointBackgroundColor: color,
-          pointBorderColor: color,
-          pointHoverBackgroundColor: color,
-          pointHoverBorderColor: color,
-          fill: false,
-          tension: 0.1,
-          yAxisID: index === 0 ? 'y-axis-1' : 'y-axis-2'
+    let dataUpdated = false
+
+    if (response?.sensorData?.length) {
+      response.sensorData.forEach((newSensorData: any) => {
+        const sensorIndex = localSensorArray.value.findIndex(
+          (sensor) => sensor.sensorID === parseInt(newSensorData.sensorID)
+        )
+
+        if (sensorIndex !== -1 && newSensorData.readings?.length) {
+          const existingReadings = localSensorArray.value[sensorIndex].readings
+          const newReadings = newSensorData.readings.filter(
+            (reading: SensorReading) => reading.timestamp > lastTimestamps[sensorIndex]
+          )
+          if (newReadings.length > 0) {
+            localSensorArray.value[sensorIndex].readings = [...existingReadings, ...newReadings]
+            dataUpdated = true
+          }
         }
       })
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        title: {
-          display: true,
-          text: [`${props.title}`, `Date Range: ${getDateRange.value}`]
-        },
-        tooltip: {
-          mode: 'index',
-          intersect: false
-        },
-        legend: {
-          labels: {
-            usePointStyle: true,
-            pointStyle: 'circle'
-          }
-        }
-      },
-      interaction: {
-        mode: 'nearest',
-        axis: 'x',
-        intersect: false
-      },
-      scales: {
-        x: {
-          type: 'time',
-          display: false,
-          time: {
-            unit: 'minute',
-            displayFormats: {
-              minute: 'HH:mm'
-            }
-          },
-          title: {
-            text: 'Time'
-          }
-        },
-        'y-axis-1': {
-          type: 'linear',
-          display: true,
-          position: 'left',
-          title: {
-            display: true,
-            text: props.sensors[0].label
-          },
-          ticks: {
-            color: props.sensors[0].color || defaultColors[0]
-          }
-        },
-        'y-axis-2': {
-          type: 'linear',
-          display: true,
-          position: 'right',
-          title: {
-            display: true,
-            text: props.sensors[1].label
-          },
-          ticks: {
-            color: props.sensors[1].color || defaultColors[1]
-          },
-          grid: {
-            drawOnChartArea: false
-          }
-        }
-      }
     }
-  })
-}
 
-const updateChart = (newData: SensorDataPoint[]) => {
-  if (!chart) return
-
-  const averagedData = averageDataPoints(newData, 100)
-  let isDataChanged = false
-
-  averagedData.forEach((data, index) => {
-    const dataTimestamp = new Date(data.timestamp)
-    if (!lastChangeTimestamp.value || dataTimestamp > lastChangeTimestamp.value) {
-      if (index < chart.data.labels!.length) {
-        if (chart.data.labels![index] !== data.timestamp) {
-          isDataChanged = true
-          chart.data.labels![index] = data.timestamp
-        }
-
-        props.sensors.forEach((sensor, sensorIndex) => {
-          if (sensorIndex < chart.data.datasets.length) {
-            const newValue = data[sensor.key] as number
-            if (chart.data.datasets[sensorIndex].data[index] !== newValue) {
-              isDataChanged = true
-              chart.data.datasets[sensorIndex].data[index] = newValue
-            }
-          }
-        })
-
-        if (
-          isDataChanged &&
-          (!lastChangeTimestamp.value || dataTimestamp > lastChangeTimestamp.value)
-        ) {
-          lastChangeTimestamp.value = dataTimestamp
-        }
-      }
+    if (dataUpdated) {
+      transformSensorData()
+      createOrUpdateChart()
     }
-  })
-
-  if (isDataChanged) {
-    chart.options.plugins!.title!.text = [`${props.title}`, `Date Range: ${getDateRange.value}`]
-    chart.update()
+  } catch (error) {
+    console.error('Error updating chart data:', error)
   }
 }
 
-watch(
-  () => props.sensorData,
-  (newData) => {
-    if (chart) {
-      updateChart(newData)
-    } else {
-      createChart()
-    }
-  },
-  { deep: true }
-)
+const initializeChart = () => {
+  localSensorArray.value = JSON.parse(JSON.stringify(props.sensorArray))
+  transformSensorData()
+  createOrUpdateChart()
+}
 
 onMounted(() => {
-  createChart()
+  initializeChart()
+  updateInterval = window.setInterval(updateChartData, 5000)
 })
 
 onUnmounted(() => {
   if (chart) {
     chart.destroy()
   }
+  if (updateInterval) {
+    clearInterval(updateInterval)
+  }
 })
+
+watch(() => props.sensorArray, initializeChart, { deep: true })
 </script>
 
 <style scoped>

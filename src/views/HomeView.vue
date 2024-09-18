@@ -9,9 +9,8 @@
     <div class="section chart-section">
       <div class="chart-container">
         <SensorDataChart
-          v-if="allSensorData.length > 0"
-          :sensorData="allSensorData"
-          :sensors="sensorConfigs"
+          v-if="sensorArray.length > 0"
+          :sensorArray="sensorArray"
           title="Room Sensors"
           chartId="combinedChart"
         />
@@ -22,85 +21,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, type Ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import SensorDataChart from '../components/sensorChart3Axis.vue'
 import { fetchDashboardInit } from '../services/app'
 
-// Define types
-type SensorReading = {
-  timestamp: number
-  value: number
-}
-
-type SensorData = {
-  sensorID: string
-  sensorName: string
-  controllerID: string
-  gpioPort: string
-  type: string
-  color: string
-  readings: SensorReading[]
-}
-
-type SensorDataPoint = {
-  timestamp: string
-  [key: string]: number | string
-}
-
-// Create a reactive object to store sensor data
-const sensors = reactive<Record<string, SensorData & { ref: Ref<SensorDataPoint[]> }>>({})
-const allSensorData = ref<SensorDataPoint[]>([])
-const sensorConfigs = ref<{ key: string; label: string; color: string; yAxisID: string }[]>([])
+const sensorArray = ref([])
 
 onMounted(async () => {
   try {
-    const fetchInitialData = async () => {
-      const response = await fetchDashboardInit()
-      const sensorDataList = response.sensorsArray as SensorData[]
-
-      sensorDataList.forEach((sensorData, index) => {
-        sensors[sensorData.type] = {
-          ...sensorData,
-          ref: ref<SensorDataPoint[]>([])
-        }
-
-        // Transform initial readings
-        sensors[sensorData.type].ref.value = sensorData.readings.map((reading) => ({
-          timestamp: new Date(reading.timestamp * 1000).toISOString(),
-          [sensorData.type]: reading.value
-        }))
-
-        // Add sensor config
-        sensorConfigs.value.push({
-          key: sensorData.type,
-          label: sensorData.sensorName,
-          color: sensorData.color,
-          yAxisID: `y${index}` // Assign y-axis ID dynamically
-        })
-
-        // Combine all sensor data
-        sensors[sensorData.type].ref.value.forEach((dataPoint) => {
-          const existingDataPoint = allSensorData.value.find(
-            (dp) => dp.timestamp === dataPoint.timestamp
-          )
-          if (existingDataPoint) {
-            existingDataPoint[sensorData.type] = dataPoint[sensorData.type]
-          } else {
-            allSensorData.value.push(dataPoint)
-          }
-        })
-      })
-    }
-
-    await fetchInitialData()
+    const response = await fetchDashboardInit()
+    sensorArray.value = response.sensorsArray
   } catch (error) {
     console.error('Error initializing sensors:', error)
   }
 })
 </script>
 
-<style scoped>
-.home {
+<style scoped > .home {
   display: grid;
   grid-template-rows: 1fr 1fr;
   grid-template-columns: 1fr 1fr;

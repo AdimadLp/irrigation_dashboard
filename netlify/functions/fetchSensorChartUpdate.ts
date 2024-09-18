@@ -1,9 +1,38 @@
-import type { Handler } from '@netlify/functions'
+import type { Handler, HandlerEvent } from '@netlify/functions'
 import { connectToDb } from './dbConnect'
 
 const DATABASE_NAME = 'irrigation_system'
 const COLLECTION_NAME = 'sensors'
 
+export async function getReadingsAfterTimestamp(sensorId: string, lastTimestamp: number) {
+  const client = await connectToDb()
+
+  const database = client.db(DATABASE_NAME)
+  const collection = database.collection(COLLECTION_NAME)
+
+  const sensor = await collection
+    .aggregate([
+      { $match: { sensorID: parseInt(sensorId) } },
+      {
+        $project: {
+          readings: {
+            $filter: {
+              input: '$readings',
+              as: 'reading',
+              cond: { $gt: ['$$reading.timestamp', lastTimestamp] }
+            }
+          }
+        }
+      }
+    ])
+    .toArray()
+
+  if (sensor.length > 0 && sensor[0].readings) {
+    return sensor[0].readings
+  } else {
+    return []
+  }
+}
 async function fetchMostRecentItem(sensorId: string) {
   const client = await connectToDb()
   const database = client.db(DATABASE_NAME)
@@ -96,44 +125,45 @@ async function fetchAllSensorData(sensorId: string) {
   return sensor?.readings || []
 }
 
-export const handler: Handler = async (event, context) => {
-  let sensorData
+async function fetchSensorData(type: string, sensorId: string, lastTimestamp?: number) {
+  switch (type) {
+    case 'pastDay':
+      return await fetchSensorDataForPastDay(sensorId)
+    case 'pastWeek':
+      return await fetchSensorDataForPastWeek(sensorId)
+    case 'pastMonth':
+      return await fetchSensorDataForPastMonth(sensorId)
+    case 'pastYear':
+      return await fetchSensorDataForPastYear(sensorId)
+    case 'all':
+      return await fetchAllSensorData(sensorId)
+    case 'mostRecent':
+      return await fetchMostRecentItem(sensorId)
+    case 'watchChanges':
+      return await getReadingsAfterTimestamp(sensorId, lastTimestamp || 0)
+    default:
+      throw new Error('Invalid type parameter.')
+  }
+}
+
+export const handler: Handler = async (event: HandlerEvent) => {
+  const sensorData: { sensorID: string; readings: any }[] = []
 
   const type = event.queryStringParameters?.type
-  const sensorId = event.queryStringParameters?.sensorId
+  const sensorIds = event.queryStringParameters?.sensorIds?.split(',')
+  const lastTimestamps = event.queryStringParameters?.lastTimestamps?.split(',').map(Number)
 
-  if (!sensorId) {
+  if (!type || !sensorIds || !lastTimestamps || sensorIds.length !== lastTimestamps.length) {
     return {
       statusCode: 400,
-      body: 'Missing sensorID parameter.'
+      body: 'Missing or mismatched type, sensorIds, or lastTimestamps parameters.'
     }
   }
 
   try {
-    switch (type) {
-      case 'pastDay':
-        sensorData = await fetchSensorDataForPastDay(sensorId)
-        break
-      case 'pastWeek':
-        sensorData = await fetchSensorDataForPastWeek(sensorId)
-        break
-      case 'pastMonth':
-        sensorData = await fetchSensorDataForPastMonth(sensorId)
-        break
-      case 'pastYear':
-        sensorData = await fetchSensorDataForPastYear(sensorId)
-        break
-      case 'all':
-        sensorData = await fetchAllSensorData(sensorId)
-        break
-      case 'mostRecent':
-        sensorData = await fetchMostRecentItem(sensorId)
-        break
-      default:
-        return {
-          statusCode: 400,
-          body: 'Invalid type parameter. Please specify either "pastDay", "pastWeek", "pastMonth", "pastYear", "all", or "mostRecent".'
-        }
+    for (let i = 0; i < sensorIds.length; i++) {
+      const data = await fetchSensorData(type, sensorIds[i], lastTimestamps[i])
+      sensorData.push({ sensorID: sensorIds[i], readings: data })
     }
   } catch (error) {
     console.error(error)
@@ -143,6 +173,7 @@ export const handler: Handler = async (event, context) => {
     }
   }
 
+  console.log(sensorData)
   return {
     statusCode: 200,
     body: JSON.stringify({
