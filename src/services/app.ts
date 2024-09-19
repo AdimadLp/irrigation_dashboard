@@ -21,9 +21,9 @@ export async function fetchSensorChartUpdate(
   console.log(response)
   return await response.json()
 }
-export async function fetchIrrigationTimelineUpdate(scheduleID: string) {
+export async function fetchIrrigationTimelineUpdate(scheduleIds: number[], lastTimestamps: number[]) {
   const response = await fetch(
-    `/.netlify/functions/fetchIrrigationTimelineUpdate?scheduleID=${scheduleID}`
+    `/.netlify/functions/fetchIrrigationTimelineUpdate?scheduleIds=${scheduleIds.join(',')}&lastTimestamps=${lastTimestamps.join(',')}`
   )
 
   if (!response.ok) {

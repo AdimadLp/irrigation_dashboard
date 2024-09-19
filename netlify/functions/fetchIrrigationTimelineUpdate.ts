@@ -1,50 +1,49 @@
-import type { Handler } from '@netlify/functions'
+import type { Handler, HandlerEvent } from '@netlify/functions'
 import { connectToDb } from './dbConnect'
 
 const DATABASE_NAME = 'irrigation_system'
 const COLLECTION_NAME = 'schedules'
 
-async function watchScheduleChanges(scheduleID: string, onChange: (change: any) => void) {
+export async function getUpdatedSchedules(scheduleIds: number[], lastTimestamps: number[]) {
   const client = await connectToDb()
-  const database = client.db(DATABASE_NAME)
-  const collection = database.collection(COLLECTION_NAME)
+  try {
+    const database = client.db(DATABASE_NAME)
+    const collection = database.collection(COLLECTION_NAME)
 
-  const changeStream = collection.watch([
-    { $match: { 'fullDocument.scheduleID': parseInt(scheduleID) } }
-  ])
+    const schedules = await collection
+      .find({
+        scheduleID: { $in: scheduleIds.map(Number) },
+        lastModified: { $gt: Math.max(...lastTimestamps) }
+      })
+      .toArray()
 
-  changeStream.on('change', (change) => {
-    onChange(change)
-  })
-
-  return () => {
-    changeStream.close()
-    client.close()
+    return schedules
+  } finally {
+    await client.close()
   }
 }
 
-export const handler: Handler = async (event, context) => {
-  const scheduleID = event.queryStringParameters?.scheduleID
-  if (!scheduleID) {
+export const handler: Handler = async (event: HandlerEvent) => {
+  const scheduleIds = event.queryStringParameters?.scheduleIds?.split(',').map(Number)
+  const lastTimestamps = event.queryStringParameters?.lastTimestamps?.split(',').map(Number)
+
+  if (!scheduleIds || !lastTimestamps || scheduleIds.length !== lastTimestamps.length) {
     return {
       statusCode: 400,
-      body: 'Missing scheduleID parameter'
+      body: 'Missing or mismatched sensorIds or lastTimestamps parameters.'
     }
   }
-
-  // Set up a promise to wait for the next change
-  const changePromise = new Promise((resolve, reject) => {
-    watchScheduleChanges(scheduleID, (change) => {
-      resolve(change)
-    }).then(stopWatching => {
-      stopWatching()
-    }).catch(reject)
-  })
-
-  const change = await changePromise
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify(change)
+  try {
+    const updatedSchedules = await getUpdatedSchedules(scheduleIds, lastTimestamps)
+    return {
+      statusCode: 200,
+      body: JSON.stringify(updatedSchedules)
+    }
+  } catch (error) {
+    console.error(error)
+    return {
+      statusCode: 500,
+      body: `Error connecting to MongoDB for updated schedules`
+    }
   }
 }

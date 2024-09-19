@@ -17,29 +17,48 @@
         <p v-else class="loading-message">Loading sensor data...</p>
       </div>
     </div>
+    <div class="section irrigation-section">
+      <div class="irrigation-container">
+        <IrrigationTimeline
+          v-if="scheduleArray.length > 0"
+          :scheduleArray="scheduleArray"
+          title="Irrigation Timeline"
+        />
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import SensorDataChart from '../components/sensorChart3Axis.vue'
+import IrrigationTimeline from '../components/IrrigationTimeline.vue'
 import { fetchDashboardInit } from '../services/app'
 
+const plantArray = ref([])
 const sensorArray = ref([])
+const scheduleArray = ref([])
+const controllerArray = ref([])
+const pumpArray = ref([])
 
 onMounted(async () => {
   try {
     const response = await fetchDashboardInit()
+    plantArray.value = response.plantsArray
     sensorArray.value = response.sensorsArray
+    scheduleArray.value = response.schedulesArray
+    controllerArray.value = response.controllersArray
+    pumpArray.value = response.pumpsArray
   } catch (error) {
     console.error('Error initializing sensors:', error)
   }
 })
 </script>
 
-<style scoped > .home {
+<style scoped>
+.home {
   display: grid;
-  grid-template-rows: 1fr 1fr;
+  grid-template-rows: 1fr 1fr 2fr;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
   height: 100vh;
@@ -74,6 +93,19 @@ onMounted(async () => {
   min-height: 0;
   height: 100%;
   padding: 20px;
+}
+
+.irrigation-container {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  padding: 20px;
+}
+
+.irrigation-section {
+  grid-column: span 2;
 }
 
 .loading-message {

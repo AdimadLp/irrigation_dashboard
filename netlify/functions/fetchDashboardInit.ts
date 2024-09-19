@@ -3,13 +3,50 @@ import { connectToDb } from './dbConnect'
 
 const DATABASE_NAME = 'irrigation_system'
 
-async function fetchAllSensorsDataForPastDay(client) {
-  const database = client.db(DATABASE_NAME)
-  const collection = database.collection('sensors')
+const COLLECTIONS = {
+  sensors: 'sensors',
+  plants: 'plants',
+  schedules: 'schedules',
+  irrigationControllers: 'irrigation_controllers',
+  pumps: 'pumps'
+}
 
+const REQUIRED_ATTRIBUTES = {
+  plants: [
+    'plantID',
+    'plantName',
+    'plantType',
+    'location',
+    'controllerID',
+    'sensorIDs',
+    'pumpIDs',
+    'waterRequirement',
+    'imagePath',
+    'wateringHistory'
+  ],
+  sensors: ['sensorID', 'sensorName', 'controllerID', 'gpioPort', 'type', 'readings'],
+  schedules: [
+    'scheduleID',
+    'weekdays',
+    'startTime',
+    'type',
+    'plantID',
+    'controllerID',
+    'threshold',
+    'timestamp'
+  ],
+  controllers: ['controllerID', 'deviceName', 'deviceType', 'ipAddress', 'status'],
+  pumps: ['name', 'controllerID', 'plantID', 'gpioPort', 'type', 'status', 'flowRate']
+}
+
+async function fetchCollection(database, collectionName, query = {}) {
+  return await database.collection(collectionName).find(query).toArray()
+}
+
+async function fetchAllSensorsDataForPastDay(database) {
   const oneDayAgo = Math.floor(Date.now() / 1000) - 86400 // Unix timestamp for 24 hours ago
-  //const oneDayAgo = Math.floor(Date.now() / 1000) - 60 // Unix timestamp for 1 minute ago
-  const sensors = await collection
+  return await database
+    .collection(COLLECTIONS.sensors)
     .aggregate([
       {
         $project: {
@@ -30,128 +67,59 @@ async function fetchAllSensorsDataForPastDay(client) {
       }
     ])
     .toArray()
+}
 
-  sensors.forEach((sensor) => {
-    const requiredAttributes = [
-      'sensorID',
-      'sensorName',
-      'controllerID',
-      'gpioPort',
-      'type',
-      'readings'
-    ]
+function validateAttributes(items, requiredAttributes) {
+  items.forEach((item) => {
     requiredAttributes.forEach((attr) => {
-      if (!Object.prototype.hasOwnProperty.call(sensor, attr)) {
-        throw new Error(`Missing attribute ${attr} in sensor data: ${JSON.stringify(sensor)}`)
+      if (item[attr] === undefined) {
+        throw new Error(`Missing attribute ${attr} in data: ${JSON.stringify(item)}`)
       }
     })
   })
-
-  return sensors
 }
-async function fetchPlantProperties(client) {
-  const database = client.db(DATABASE_NAME)
-  const collection = database.collection('plants')
 
-  const plants = await collection.find({}).toArray()
-
-  plants.forEach((plant) => {
-    const requiredAttributes = [
-      'plantID',
-      'plantName',
-      'plantType',
-      'location',
-      'controllerID',
-      'sensorIDs',
-      'pumpIDs',
-      'waterRequirement',
-      'imagePath',
-      'wateringHistory'
-    ]
-
-    requiredAttributes.forEach((attr) => {
-      if (plant[attr] === undefined) {
-        throw new Error(`Missing attribute ${attr} in plant data: ${JSON.stringify(plant)}`)
-      }
-    })
-  })
-
-  return plants
-}
-async function fetchScheduleProperties(client) {
-  const database = client.db(DATABASE_NAME)
-  const collection = database.collection('schedules')
-
-  const schedules = await collection.find({}).toArray()
-
-  schedules.forEach((schedule) => {
-    const requiredAttributes = [
-      'scheduleID',
-      'weekdays',
-      'startTime',
-      'type',
-      'plantID',
-      'controllerID',
-      'threshold'
-    ]
-
-    requiredAttributes.forEach((attr) => {
-      if (schedule[attr] === undefined) {
-        throw new Error(`Missing attribute ${attr} in schedule data: ${JSON.stringify(schedule)}`)
-      }
-    })
-  })
-
-  return schedules
-}
-async function fetchIrrigationControllers(client) {
-  const database = client.db(DATABASE_NAME)
-  const collection = database.collection('irrigation_controllers')
-
-  const controllers = await collection.find({ deviceType: 'production' }).toArray()
-
-  controllers.forEach((controller) => {
-    const requiredAttributes = ['controllerID', 'deviceName', 'deviceType', 'ipAddress', 'status']
-
-    requiredAttributes.forEach((attr) => {
-      if (controller[attr] === undefined) {
-        throw new Error(
-          `Missing attribute ${attr} in controller data: ${JSON.stringify(controller)}`
-        )
-      }
-    })
-  })
-
-  return controllers
-}
 export const handler: Handler = async () => {
-  let plantsArray
-  let sensorsArray
-  let schedulesArray
-  let controllersArray
-
+  let client
   try {
-    const client = await connectToDb()
-    plantsArray = await fetchPlantProperties(client)
-    sensorsArray = await fetchAllSensorsDataForPastDay(client)
-    schedulesArray = await fetchScheduleProperties(client)
-    controllersArray = await fetchIrrigationControllers(client)
-    await client.close()
+    client = await connectToDb()
+    const database = client.db(DATABASE_NAME)
+
+    const collections = await Promise.all([
+      fetchCollection(database, COLLECTIONS.plants),
+      fetchAllSensorsDataForPastDay(database),
+      fetchCollection(database, COLLECTIONS.schedules),
+      fetchCollection(database, COLLECTIONS.irrigationControllers, { deviceType: 'production' }),
+      fetchCollection(database, COLLECTIONS.pumps)
+    ])
+
+    const [plantsArray, sensorsArray, schedulesArray, controllersArray, pumpsArray] = collections
+
+    validateAttributes(plantsArray, REQUIRED_ATTRIBUTES.plants)
+    validateAttributes(sensorsArray, REQUIRED_ATTRIBUTES.sensors)
+    validateAttributes(schedulesArray, REQUIRED_ATTRIBUTES.schedules)
+    validateAttributes(controllersArray, REQUIRED_ATTRIBUTES.controllers)
+    validateAttributes(pumpsArray, REQUIRED_ATTRIBUTES.pumps)
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        plantsArray,
+        sensorsArray,
+        schedulesArray,
+        controllersArray,
+        pumpsArray
+      })
+    }
   } catch (error) {
     console.error(error)
     return {
       statusCode: 500,
-      body: `Error connecting to MongoDB for plant properties`
+      body: `Error: ${error.message}`
     }
-  }
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify({
-      plantsArray,
-      sensorsArray,
-      schedulesArray,
-      controllersArray
-    })
+  } finally {
+    if (client) {
+      await client.close()
+    }
   }
 }
