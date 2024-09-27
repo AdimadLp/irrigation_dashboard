@@ -14,7 +14,7 @@
             :key="`${schedule.scheduleID}-${day}`"
             class="schedule-item"
             :style="getScheduleStyle(schedule, day)"
-            v-tooltip="{ content: `Plant ID: ${schedule.plantID}` }"
+            v-tooltip="getTooltipContent(schedule, day)"
           >
             {{ schedule.name }}
           </div>
@@ -113,16 +113,22 @@ export default defineComponent({
       return date
     }
 
-    const isInWateringHistory = (schedule: any, date: Date) => {
+    const getWateringTimestamp = (schedule: any, date: Date) => {
       const plant = plants.value.find((plant) => plant.plantID === schedule.plantID)
-      if (!plant || !plant.wateringHistory) return false
+      if (!plant || !plant.wateringHistory) return null
 
       const scheduleDate = resetTime(new Date(date))
 
-      return plant.wateringHistory.some((historyEntry: { timestamp: number }) => {
+      const wateringEntry = plant.wateringHistory.find((historyEntry: { timestamp: number }) => {
         const historyDate = resetTime(new Date(historyEntry.timestamp * 1000))
         return historyDate.getTime() === scheduleDate.getTime()
       })
+
+      return wateringEntry ? wateringEntry.timestamp : null
+    }
+
+    const isInWateringHistory = (schedule: any, date: Date) => {
+      return getWateringTimestamp(schedule, date) !== null
     }
 
     const getScheduleStyle = (schedule: any, day: number) => {
@@ -149,6 +155,17 @@ export default defineComponent({
         right: '0',
         backgroundColor
       }
+    }
+
+    const getTooltipContent = (schedule: any, day: number) => {
+      const scheduleDate = addDays(startDate.value, day - 1)
+      const wateringTimestamp = getWateringTimestamp(schedule, scheduleDate)
+      let content = `Plant ID: ${schedule.plantID}`
+      if (wateringTimestamp) {
+        const wateringDate = new Date(wateringTimestamp * 1000)
+        content += `<br>Watered at: ${wateringDate.toLocaleString()}`
+      }
+      return { content, html: true }
     }
 
     const getPlantName = (plantID: number) => {
@@ -183,6 +200,7 @@ export default defineComponent({
       addDays,
       getSchedulesForDay,
       getScheduleStyle,
+      getTooltipContent,
       getPlantName
     }
   }
@@ -250,6 +268,7 @@ export default defineComponent({
   position: absolute;
   left: 0;
   right: 0;
+  background-color: #808080;
   color: white;
   padding: 2px 4px;
   font-size: 0.8rem;
