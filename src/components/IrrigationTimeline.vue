@@ -53,12 +53,10 @@ export default defineComponent({
         const lastTimestamps = schedules.value.map((schedule) => schedule.timestamp)
         const updatedSchedules = await fetchIrrigationTimelineUpdate(scheduleIds, lastTimestamps)
 
-        // Create a map of updated schedules
         const updatedSchedulesMap = new Map(
           updatedSchedules.map((schedule: { scheduleID: any }) => [schedule.scheduleID, schedule])
         )
 
-        // Replace only the schedules that have been updated
         schedules.value = schedules.value.map((schedule) =>
           updatedSchedulesMap.has(schedule.scheduleID)
             ? updatedSchedulesMap.get(schedule.scheduleID)
@@ -107,30 +105,49 @@ export default defineComponent({
       const dayName = date.toLocaleDateString('en-US', { weekday: 'long' })
       return schedules.value
         .filter((schedule) => schedule.weekdays.includes(dayName))
-        .sort((a, b) => a.scheduleID - b.scheduleID) // Sort by scheduleID
+        .sort((a, b) => a.scheduleID - b.scheduleID)
+    }
+
+    const resetTime = (date: Date) => {
+      date.setHours(0, 0, 0, 0)
+      return date
+    }
+
+    const isInWateringHistory = (schedule: any, date: Date) => {
+      const plant = plants.value.find((plant) => plant.plantID === schedule.plantID)
+      if (!plant || !plant.wateringHistory) return false
+
+      const scheduleDate = resetTime(new Date(date))
+
+      return plant.wateringHistory.some((historyEntry: { timestamp: number }) => {
+        const historyDate = resetTime(new Date(historyEntry.timestamp * 1000))
+        return historyDate.getTime() === scheduleDate.getTime()
+      })
     }
 
     const getScheduleStyle = (schedule: any, day: number) => {
       const startTime = new Date(schedule.startTime)
       const hours = startTime.getUTCHours()
       const minutes = startTime.getUTCMinutes()
-      const top = (hours * 60 + minutes) * (400 / 1440) // 400px height for 24 hours
+      const top = (hours * 60 + minutes) * (400 / 1440)
 
-      // Assuming a default duration of 1 hour if not provided
       const duration = schedule.duration || 60
       const height = (duration / 60) * (400 / 24)
 
-      // Calculate the vertical position based on the index of the schedule in its group
       const schedulesForDay = getSchedulesForDay(addDays(startDate.value, day - 1))
       const schedulesAtSameTime = schedulesForDay.filter((s) => s.startTime === schedule.startTime)
       const index = schedulesAtSameTime.findIndex((s) => s.scheduleID === schedule.scheduleID)
-      const verticalOffset = index * 20 // Adjust the multiplier as needed for spacing
+      const verticalOffset = index * 20
+
+      const scheduleDate = addDays(startDate.value, day - 1)
+      const backgroundColor = isInWateringHistory(schedule, scheduleDate) ? '#4caf50' : '#808080'
 
       return {
         top: `${top + verticalOffset}px`,
         height: `${height}px`,
         left: '0',
-        right: '0'
+        right: '0',
+        backgroundColor
       }
     }
 
@@ -188,9 +205,9 @@ export default defineComponent({
 }
 
 .week-button {
-  background-color: #222222; /* Match the background color of the day-header */
-  color: #ffffff; /* Match the text color of the schedule-item */
-  border: 1px solid #313131; /* Match the border color of the day-column */
+  background-color: #222222;
+  color: #ffffff;
+  border: 1px solid #313131;
   padding: 0.5rem 1rem;
   cursor: pointer;
   font-size: 1rem;
@@ -201,8 +218,8 @@ export default defineComponent({
 }
 
 .week-button:hover {
-  background-color: #313131; /* Slightly lighter shade for hover effect */
-  color: #ffffff; /* Keep the text color consistent */
+  background-color: #313131;
+  color: #ffffff;
 }
 
 .timeline-grid {
@@ -233,7 +250,6 @@ export default defineComponent({
   position: absolute;
   left: 0;
   right: 0;
-  background-color: #4caf50;
   color: white;
   padding: 2px 4px;
   font-size: 0.8rem;
