@@ -22,6 +22,7 @@
         <IrrigationTimeline
           v-if="scheduleArray.length > 0"
           :scheduleArray="scheduleArray"
+          :plantArray="plantArray"
           title="Irrigation Timeline"
         />
       </div>
@@ -58,7 +59,7 @@ onMounted(async () => {
 <style scoped>
 .home {
   display: grid;
-  grid-template-rows: 1fr 1fr 2fr;
+  grid-template-rows: 1fr 1fr;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
   height: 100vh;
