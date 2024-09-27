@@ -23,7 +23,6 @@
           v-if="scheduleArray.length > 0"
           :scheduleArray="scheduleArray"
           :plantArray="plantArray"
-          title="Irrigation Timeline"
         />
       </div>
     </div>
@@ -71,9 +70,9 @@ onMounted(async () => {
 .section {
   display: flex;
   flex-direction: column;
-  background-color: #f5f5f5;
+  background-color: #282828;
   border-radius: 10px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px #00000019;
   overflow: hidden;
 }
 
