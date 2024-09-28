@@ -169,8 +169,8 @@ const createChartConfig = (averagedData: SensorDataPoint[]) => {
         callbacks: {
           label: function (context) {
             const label = context.dataset.label || ''
-            const value = context.raw
-            return `${label}: ${value}`
+            const value = context.raw as number
+            return `${label}: ${value.toFixed(1)}`
           }
         }
       },
