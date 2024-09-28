@@ -249,7 +249,7 @@ const createOrUpdateChart = () => {
   const canvas = document.getElementById(props.chartId) as HTMLCanvasElement
   if (!canvas) return
 
-  const averagedData = averageDataPoints(allSensorData.value, 100)
+  const averagedData = averageDataPoints(allSensorData.value, 20)
   const config = createChartConfig(averagedData)
 
   if (chart) {
